@@ -16,7 +16,11 @@ function Auth() {
 
   useEffect(() => {
     const getAccess = code && getAccessToken();
-    if (getAccess) location.href = `${BASE_URL}/dashboard/questions`;
+    if (getAccess) {
+      setTimeout(() => {
+        location.href = `${BASE_URL}/dashboard/questions`;
+      }, 2000);
+    }
   }, [code]);
 
   async function getAccessToken() {

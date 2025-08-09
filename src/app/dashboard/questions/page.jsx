@@ -77,7 +77,6 @@ export default function Page() {
   const [questions, setQuestions] = useState([]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
-  const TOKEN = sessionStorage.getItem("access_token");
 
   useEffect(() => {
     getAllQuestion();
@@ -100,6 +99,7 @@ export default function Page() {
   });
 
   async function onSubmit(data) {
+    const TOKEN = sessionStorage.getItem("access_token");
     setButtonSaveDisable(true);
 
     const options = data.answers.map((ans, idx) => ({
@@ -143,7 +143,8 @@ export default function Page() {
   }
 
   async function getAllQuestion() {
-    // console.log(TOKEN);
+    const TOKEN = sessionStorage.getItem("access_token");
+
     try {
       const res = await axios.get(`${API_URL}/admin/questions`, {
         headers: {
@@ -165,6 +166,8 @@ export default function Page() {
   }
 
   async function handleDeleteQuestion(questionId) {
+    const TOKEN = sessionStorage.getItem("access_token");
+
     try {
       const res = await axios.delete(
         `${API_URL}/admin/questions/${questionId}`,

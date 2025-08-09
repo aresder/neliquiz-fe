@@ -3,10 +3,10 @@
 import axios from "axios";
 import { useSearchParams } from "next/navigation";
 // import { useRouter } from "next/router";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { toast, Toaster } from "sonner";
 
-export default function Page() {
+function Auth() {
   const params = new useSearchParams();
   const code = params.get("code");
   const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL;
@@ -16,7 +16,7 @@ export default function Page() {
 
   useEffect(() => {
     const getAccess = code && getAccessToken();
-    if (getAccess) location.href = `${BASE_URL}/dashboard/new-question`;
+    if (getAccess) location.href = `${BASE_URL}/dashboard/questions`;
   }, [code]);
 
   async function getAccessToken() {
@@ -56,6 +56,16 @@ export default function Page() {
     <>
       <Toaster position="top-right" />
       <h1>Tunggu! Kamu akan di redirect ke halaman lain...</h1>
+    </>
+  );
+}
+
+export default function Page() {
+  return (
+    <>
+      <Suspense fallback={<div>Loading...</div>}>
+        <Auth />
+      </Suspense>
     </>
   );
 }

@@ -48,6 +48,15 @@ import {
   AlertDialogAction,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const FormSchema = z.object({
   question: z.string().min(5, {
@@ -75,12 +84,19 @@ export default function Page() {
 
   // Table Data
   const [questions, setQuestions] = useState([]);
+  const [totalQuestion, setTotalQuestion] = useState(0);
+  const [page, setPage] = useState(1);
+  const limit = 10;
+  const [detQuestions, setDetQuestions] = useState({});
+
+  // Edit
+  const [openEdit, setOpenEdit] = useState(false);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
-    getAllQuestion();
-  }, []);
+    getAllQuestion(page);
+  }, [page]);
 
   const form = useForm({
     resolver: zodResolver(FormSchema),
@@ -142,26 +158,54 @@ export default function Page() {
     }
   }
 
-  async function getAllQuestion() {
+  async function getAllQuestion(pagea) {
     const TOKEN = sessionStorage.getItem("access_token");
 
     try {
-      const res = await axios.get(`${API_URL}/admin/questions`, {
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const res = await axios.get(
+        `${API_URL}/admin/questions?page=${pagea}&limit=${limit}`,
+        {
+          headers: {
+            Authorization: `Bearer ${TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
       const resData = res.data;
+      console.log(resData.data.questions);
 
       if (res.status !== 200) {
         toast(res.data.message);
         return;
       }
 
+      setTotalQuestion(resData.data.total_count);
       setQuestions(resData.data.questions);
     } catch (err) {
       toast(err.message);
+    }
+  }
+
+  async function handleGetDetailQuestion(questionId) {
+    const TOKEN = sessionStorage.getItem("access_token");
+
+    try {
+      const res = await axios.get(`${API_URL}/admin/questions/${questionId}`, {
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+        },
+      });
+
+      if (res.status !== 200) {
+        toast("Gagal mengambil list question! 😞");
+        console.log(res);
+        return;
+      }
+
+      setDetQuestions(res.data.data);
+    } catch (err) {
+      toast(err.message);
+      console.log(err);
     }
   }
 
@@ -193,6 +237,34 @@ export default function Page() {
       console.log(err);
     }
   }
+
+  const totalPages = Math.ceil(totalQuestion / limit);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (page <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages);
+      } else if (page >= totalPages - 2) {
+        pages.push(
+          1,
+          "...",
+          totalPages - 3,
+          totalPages - 2,
+          totalPages - 1,
+          totalPages
+        );
+      } else {
+        pages.push(1, "...", page - 1, page, page + 1, "...", totalPages);
+      }
+    }
+    return pages;
+  };
+
+  const start = (page - 1) * limit + 1;
+  const end = Math.min(page * limit, totalQuestion);
 
   return (
     <>
@@ -347,6 +419,7 @@ export default function Page() {
           </DialogContent>
         </Dialog>
 
+        {/* Grid Data Questions */}
         <Table>
           <TableCaption>List semua pertanyaan random admin 😵</TableCaption>
           <TableHeader>
@@ -362,17 +435,102 @@ export default function Page() {
             {questions &&
               questions.map((row, index) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium">{index + 1}</TableCell>
-                  <TableCell className="font-medium">{row.content}</TableCell>
-                  <TableCell className="font-medium">{row.hit}</TableCell>
-                  <TableCell className="font-medium">
+                  <TableCell> {(page - 1) * limit + (index + 1)}</TableCell>
+                  <TableCell>{row.content}</TableCell>
+                  <TableCell>{row.hit}</TableCell>
+                  <TableCell>
                     {row.categories.map((row) => row.name).join(", ")}
                   </TableCell>
-                  <TableCell className="font-medium space-x-3 text-center">
+                  <TableCell className="space-x-3 text-center">
                     {/* Edit */}
-                    <Button className="hover:cursor-pointer bg-green-700">
-                      <SquarePen color="#ffffff" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          className="hover:cursor-pointer bg-green-600"
+                          onClick={() => handleGetDetailQuestion(row.id)}>
+                          <SquarePen color="#ffffff" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogTitle>Detail Question</AlertDialogTitle>
+                        {/* <AlertDialogDescription></AlertDialogDescription> */}
+                        <div className="flex flex-col overflow-hidden gap-2">
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              Question :&nbsp;
+                            </h1>
+                            <p className="truncate min-w-0">{row.content}</p>
+                          </div>
+
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              Categories : &nbsp;
+                            </h1>
+                            <p className="truncate min-w-0">
+                              {row.categories.map((row) => row.name).join(", ")}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              Options Answer : &nbsp;
+                            </h1>
+                            <p className="truncate min-w-0">
+                              {row.options.map((row) => row.content).join(", ")}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              True Answer : &nbsp;
+                            </h1>
+                            <p className="truncate min-w-0">
+                              {row.options.map(
+                                (row) => row.is_correct && row.content
+                              )}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              Explanation :&nbsp;
+                            </h1>
+                            <p className="truncate min-w-0 text-blue-500 underline">
+                              <a target="_blank" href={row.explanation_url}>
+                                Click Here
+                              </a>
+                            </p>
+                          </div>
+
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              Created At :&nbsp;
+                            </h1>
+                            <p className="truncate min-w-0">
+                              {new Date(row.created_at).toLocaleString()}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center overflow-hidden">
+                            <h1 className="whitespace-nowrap font-semibold">
+                              Updated At :&nbsp;
+                            </h1>
+                            <p className="truncate min-w-0">
+                              {new Date(row.updated_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Close</AlertDialogCancel>
+                          <AlertDialogAction
+                            className={"bg-blue-500"}
+                            onClick={() => setOpenEdit(true)}>
+                            <SquarePen /> Edit
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
                     {/* Hapus */}
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -402,6 +560,201 @@ export default function Page() {
               ))}
           </TableBody>
         </Table>
+
+        <Dialog open={openEdit} onOpenChange={setOpenEdit}>
+          <DialogContent className="sm:max-w-[425px] max-h-3/4 overflow-y-scroll overflow-x-hidden">
+            <DialogHeader>
+              <DialogTitle>Add New Question</DialogTitle>
+              <DialogDescription>
+                Kasih kami pertanyaan dari pikiranmu 🤓
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4">
+                {/* Question */}
+                <FormField
+                  control={form.control}
+                  name="question"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Question</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Siapa itu Alan Turing?"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Kasih pertanyaan yang menambah wawasan ya!
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Answers */}
+                <FormField
+                  control={form.control}
+                  name="correctIndex"
+                  render={({ field }) => (
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={field.value}
+                      className="space-y-3">
+                      {fields.map((item, index) => (
+                        <div key={item.id} className="flex items-center gap-3">
+                          <FormControl>
+                            <RadioGroupItem value={String(index)} />
+                          </FormControl>
+
+                          <FormField
+                            control={form.control}
+                            name={`answers.${index}.answer`}
+                            render={({ field }) => (
+                              <FormItem className="flex-1">
+                                <FormControl>
+                                  <Input
+                                    placeholder={`Answer ${index + 1}`}
+                                    {...field}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {/* Tombol hapus, tapi hanya muncul kalau lebih dari 2 */}
+                          {index >= 2 && (
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => remove(index)}>
+                              <Trash2 />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name={`correctIndex`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Add answer button */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => append({ answer: "" })}
+                  disabled={fields.length >= 5}>
+                  Add Answer
+                </Button>
+
+                {/* Categories */}
+                <FormField
+                  control={form.control}
+                  name="categories"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Categories</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Sejarah, IPS" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Explanation Url */}
+                <FormField
+                  control={form.control}
+                  name="explanation_url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Explantion Url</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://google.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <DialogFooter>
+                  <DialogClose asChild>
+                    <Button variant="outline">Cancel</Button>
+                  </DialogClose>
+                  <Button type="submit" disabled={buttonSaveDisable}>
+                    Save
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between">
+            {/* Info total data */}
+            <p className="text-sm text-gray-500">
+              Menampilkan {start}–{end} dari {totalQuestion} data
+            </p>
+
+            {/* Pagination */}
+            <Pagination>
+              <PaginationContent>
+                {/* Prev */}
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                    className={
+                      page === 1 ? "pointer-events-none opacity-50" : ""
+                    }
+                  />
+                </PaginationItem>
+
+                {/* Page numbers */}
+                {getPageNumbers().map((p, i) =>
+                  p === "..." ? (
+                    <PaginationItem key={i}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={i}>
+                      <PaginationLink
+                        isActive={page === p}
+                        onClick={() => setPage(Number(p))}>
+                        {p}
+                      </PaginationLink>
+                    </PaginationItem>
+                  )
+                )}
+
+                {/* Next */}
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+                    className={
+                      page === totalPages
+                        ? "pointer-events-none opacity-50"
+                        : ""
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
     </>
   );
